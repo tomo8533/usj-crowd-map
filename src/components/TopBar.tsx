@@ -34,16 +34,16 @@ export default function TopBar({
 
       {/* 最終更新時刻 */}
       {formattedTime && (
-        <span className="text-xs text-gray-500 hidden sm:block">
+        <span className="text-xs text-gray-500">
           最終更新: {formattedTime}
         </span>
       )}
 
-      {/* 名称表示トグル */}
+      {/* 名称表示トグル（デスクトップのみ） */}
       <button
         onClick={onToggleLabels}
         title={showLabels ? '名称を非表示' : '名称を表示'}
-        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors ${
+        className={`hidden md:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors ${
           showLabels
             ? 'bg-gray-800 text-white border-gray-800'
             : 'border-gray-300 text-gray-600 hover:bg-gray-50'
@@ -55,11 +55,11 @@ export default function TopBar({
         名称 {showLabels ? 'ON' : 'OFF'}
       </button>
 
-      {/* 更新ボタン */}
+      {/* 更新ボタン（デスクトップのみ） */}
       <button
         onClick={onRefresh}
         disabled={isLoading}
-        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+        className="hidden md:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 transition-colors"
       >
         {isLoading ? (
           <svg className="animate-spin w-3.5 h-3.5 text-gray-600" viewBox="0 0 24 24" fill="none">
@@ -74,7 +74,7 @@ export default function TopBar({
         更新
       </button>
 
-      {/* 免責 + 必須クレジット */}
+      {/* 免責 + 必須クレジット（デスクトップのみ） */}
       <div className="hidden md:flex items-center gap-3">
         <span className="text-[10px] text-gray-400">
           参考情報・公式データではありません

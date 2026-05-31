@@ -41,7 +41,7 @@ export default function Sidebar({
   }, [sortedRides, activeAreas]);
 
   return (
-    <aside className="w-[260px] bg-white border-r border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
+    <aside className="hidden md:flex w-[260px] bg-white border-r border-gray-200 flex-col overflow-hidden flex-shrink-0">
 
       {/* 時間帯タブ */}
       <div className="p-3 border-b border-gray-100">

@@ -9,6 +9,10 @@ import { getWaitColor } from '@/types';
 import type { RideWithLocation, SimOffset } from '@/types';
 
 const USJ_CENTER: [number, number] = [34.6655, 135.4323];
+const USJ_BOUNDS: [[number, number], [number, number]] = [
+  [34.655, 135.420],
+  [34.675, 135.445],
+];
 
 const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 const TILE_ATTRIBUTION =
@@ -16,10 +20,12 @@ const TILE_ATTRIBUTION =
   '&copy; <a href="https://carto.com/attributions">CARTO</a> | ' +
   'Powered by <a href="https://queue-times.com">Queue-Times.com</a>';
 
-function createBubbleIcon(ride: RideWithLocation): L.DivIcon {
+function createBubbleIcon(ride: RideWithLocation, isMobile = false): L.DivIcon {
   const { wait_time, is_open } = ride;
   const color = getWaitColor(wait_time, is_open);
-  const r = is_open ? Math.min(12 + Math.floor(wait_time / 10), 22) : 14;
+  const base = isMobile ? 14 : 12;
+  const max = isMobile ? 24 : 22;
+  const r = is_open ? Math.min(base + Math.floor(wait_time / 10), max) : (isMobile ? 16 : 14);
   const outer = r + 6;
   const size = outer * 2;
   const label = is_open ? (wait_time > 0 ? `${wait_time}` : '—') : '休止';
@@ -54,12 +60,45 @@ function FlyToController({
   return null;
 }
 
+function ResetControl() {
+  const map = useMap();
+
+  useEffect(() => {
+    class HomeControl extends L.Control {
+      onAdd(): HTMLElement {
+        const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const a = L.DomUtil.create('a', '', div) as HTMLAnchorElement;
+        a.innerHTML = '⌂';
+        a.href = '#';
+        a.title = '初期位置に戻る';
+        a.style.cssText =
+          'font-size:18px;line-height:26px;display:block;width:26px;height:26px;' +
+          'text-align:center;text-decoration:none;color:#333;background:white;';
+        L.DomEvent.on(a, 'click', (e) => {
+          L.DomEvent.stop(e as Event);
+          map.flyTo(USJ_CENTER, 16, { duration: 0.8 });
+        });
+        return div;
+      }
+      onRemove(): void {}
+    }
+    const ctrl = new HomeControl({ position: 'topright' });
+    ctrl.addTo(map);
+    return () => {
+      ctrl.remove();
+    };
+  }, [map]);
+
+  return null;
+}
+
 interface Props {
   rides: RideWithLocation[];
   focusedRideId: number | null;
   activeAreas: string[];
   offset: SimOffset;
   showLabels: boolean;
+  isMobile?: boolean;
 }
 
 export default function MapComponent({
@@ -67,6 +106,7 @@ export default function MapComponent({
   focusedRideId,
   activeAreas,
   showLabels,
+  isMobile = false,
 }: Props) {
   const filteredRides =
     activeAreas.length === 0
@@ -79,33 +119,32 @@ export default function MapComponent({
       zoom={16}
       minZoom={15}
       maxZoom={19}
+      maxBounds={USJ_BOUNDS}
+      maxBoundsViscosity={1.0}
       style={{ width: '100%', height: '100%' }}
     >
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
       <HeatmapLayer rides={filteredRides} />
       <FlyToController focusedRideId={focusedRideId} rides={rides} />
+      <ResetControl />
       {filteredRides.map((ride) => (
         <Marker
-          key={ride.ride_id}
+          key={`${ride.ride_id}-${showLabels}`}
           position={[ride.lat, ride.lng]}
-          icon={createBubbleIcon(ride)}
+          icon={createBubbleIcon(ride, isMobile)}
         >
           {showLabels ? (
-            // 名称表示 ON: 常時表示のラベル + ホバーで詳細
-            <>
-              <Tooltip
-                permanent
-                direction="bottom"
-                offset={[0, 4]}
-                className="ride-name-label"
-              >
-                <span style={{ fontSize: 10, whiteSpace: 'nowrap', color: '#374151' }}>
-                  {ride.ride_name}
-                </span>
-              </Tooltip>
-            </>
+            <Tooltip
+              permanent
+              direction="bottom"
+              offset={[0, 4]}
+              className="ride-name-label"
+            >
+              <span style={{ fontSize: 10, whiteSpace: 'nowrap', color: '#374151' }}>
+                {ride.ride_name}
+              </span>
+            </Tooltip>
           ) : (
-            // 名称表示 OFF: ホバーで詳細
             <Tooltip direction="top" offset={[0, -8]}>
               <div style={{ fontSize: 12, lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 700 }}>{ride.ride_name}</div>
