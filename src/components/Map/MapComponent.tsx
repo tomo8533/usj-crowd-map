@@ -26,6 +26,25 @@ interface AreaPolygon {
   name: string;
   color: string;
   positions: LatLngTuple[];
+  centroid: LatLngTuple;
+}
+
+function computeCentroid(positions: LatLngTuple[]): LatLngTuple {
+  const n = positions.length;
+  const [sumLat, sumLng] = positions.reduce(
+    ([sl, sng], [lat, lng]) => [sl + lat, sng + lng],
+    [0, 0]
+  );
+  return [sumLat / n, sumLng / n];
+}
+
+function createAreaLabelIcon(name: string, color: string): L.DivIcon {
+  return L.divIcon({
+    className: '',
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+    html: `<span style="position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:700;color:${color};white-space:nowrap;pointer-events:none;user-select:none;">${name}</span>`,
+  });
 }
 
 // GeoJSON座標 [lng, lat] → Leaflet [lat, lng] に変換済み
@@ -175,11 +194,15 @@ const AREA_POLYGONS: AreaPolygon[] = (
       ],
     },
   ] as { name: string; color: string; coords: [number, number][] }[]
-).map((area) => ({
-  name: area.name,
-  color: area.color,
-  positions: area.coords.map(([lng, lat]) => [lat, lng] as LatLngTuple),
-}));
+).map((area) => {
+  const positions = area.coords.map(([lng, lat]) => [lat, lng] as LatLngTuple);
+  return {
+    name: area.name,
+    color: area.color,
+    positions,
+    centroid: computeCentroid(positions),
+  };
+});
 
 function createBubbleIcon(ride: RideWithLocation, isMobile = false): L.DivIcon {
   const { wait_time, is_open } = ride;
@@ -331,6 +354,14 @@ function AreaPolygonsLayer({ show }: { show: boolean }) {
             <span style={{ fontSize: 12, fontWeight: 600 }}>{area.name}</span>
           </Tooltip>
         </Polygon>
+      ))}
+      {AREA_POLYGONS.map((area) => (
+        <Marker
+          key={`${area.name}-label`}
+          position={area.centroid}
+          icon={createAreaLabelIcon(area.name, area.color)}
+          interactive={false}
+        />
       ))}
     </>
   );
