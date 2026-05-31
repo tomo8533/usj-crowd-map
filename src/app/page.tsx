@@ -15,6 +15,7 @@ export default function Home() {
   const [activeAreas, setActiveAreas] = useState<string[]>([]);
   const [focusedRideId, setFocusedRideId] = useState<number | null>(null);
   const [showLabels, setShowLabels] = useState(false);
+  const [showAreaPolygons, setShowAreaPolygons] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -77,6 +78,8 @@ export default function Home() {
         onRefresh={() => mutate()}
         showLabels={showLabels}
         onToggleLabels={() => setShowLabels((v) => !v)}
+        showAreaPolygons={showAreaPolygons}
+        onToggleAreaPolygons={() => setShowAreaPolygons((v) => !v)}
       />
       <div className="flex flex-1 min-h-0">
         <Sidebar {...sidebarProps} />
@@ -87,6 +90,7 @@ export default function Home() {
             activeAreas={activeAreas}
             offset={selectedOffset}
             showLabels={showLabels}
+            showAreaPolygons={showAreaPolygons}
             isMobile={isMobile}
           />
         </div>

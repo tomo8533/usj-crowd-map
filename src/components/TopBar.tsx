@@ -1,11 +1,15 @@
 'use client';
 
+import { Map } from 'lucide-react';
+
 interface Props {
   fetchedAt: string | null;
   isLoading: boolean;
   onRefresh: () => void;
   showLabels: boolean;
   onToggleLabels: () => void;
+  showAreaPolygons: boolean;
+  onToggleAreaPolygons: () => void;
 }
 
 export default function TopBar({
@@ -14,6 +18,8 @@ export default function TopBar({
   onRefresh,
   showLabels,
   onToggleLabels,
+  showAreaPolygons,
+  onToggleAreaPolygons,
 }: Props) {
   const formattedTime = fetchedAt
     ? new Date(fetchedAt).toLocaleTimeString('ja-JP', {
@@ -38,6 +44,20 @@ export default function TopBar({
           最終更新: {formattedTime}
         </span>
       )}
+
+      {/* エリア表示トグル（デスクトップのみ） */}
+      <button
+        onClick={onToggleAreaPolygons}
+        title={showAreaPolygons ? 'エリアを非表示' : 'エリアを表示'}
+        className={`hidden md:flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors ${
+          showAreaPolygons
+            ? 'bg-gray-800 text-white border-gray-800'
+            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+        }`}
+      >
+        <Map className="w-3.5 h-3.5" />
+        エリア {showAreaPolygons ? 'ON' : 'OFF'}
+      </button>
 
       {/* 名称表示トグル（デスクトップのみ） */}
       <button
