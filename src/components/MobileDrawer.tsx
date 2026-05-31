@@ -14,6 +14,12 @@ interface Props {
   onRideClick: (rideId: number) => void;
   isSimulated: boolean;
   lowAccuracy: boolean;
+  showLabels: boolean;
+  onToggleLabels: () => void;
+  showAreaPolygons: boolean;
+  onToggleAreaPolygons: () => void;
+  onRefresh: () => void;
+  isLoading: boolean;
 }
 
 export default function MobileDrawer({
@@ -26,6 +32,12 @@ export default function MobileDrawer({
   onRideClick,
   isSimulated,
   lowAccuracy,
+  showLabels,
+  onToggleLabels,
+  showAreaPolygons,
+  onToggleAreaPolygons,
+  onRefresh,
+  isLoading,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const touchStartY = useRef<number | null>(null);
@@ -69,21 +81,67 @@ export default function MobileDrawer({
     >
       {/* ドラッグハンドル */}
       <div
-        className="flex-shrink-0 flex flex-col items-center pt-2 pb-2 cursor-pointer select-none"
+        className="flex-shrink-0 flex flex-col pt-2 pb-2 select-none"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        onClick={() => setIsOpen((v) => !v)}
       >
-        <div className="w-10 h-1 rounded-full bg-gray-300 mb-2" />
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-600">
-            {isOpen ? '▼ 閉じる' : '▲ 混雑情報'}
-          </span>
-          {summary && !isOpen && (
-            <span className="text-xs text-gray-500">
-              平均{summary.avg_wait}分 · {summary.congestion_label}
+        {/* ドラッグバー（中央） */}
+        <div className="flex justify-center mb-1.5">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        {/* 下段: 左=タイトル（タップで開閉）/ 右=コントロールボタン */}
+        <div className="flex items-center px-3 gap-2">
+          {/* 左: タップで開閉 */}
+          <div
+            className="flex-1 flex items-center gap-2 cursor-pointer"
+            onClick={() => setIsOpen((v) => !v)}
+          >
+            <span className="text-xs font-semibold text-gray-600">
+              {isOpen ? '▼ 閉じる' : '▲ 混雑情報'}
             </span>
-          )}
+            {summary && !isOpen && (
+              <span className="text-xs text-gray-500">
+                平均{summary.avg_wait}分 · {summary.congestion_label}
+              </span>
+            )}
+          </div>
+
+          {/* 右: エリア / 名称 / 更新ボタン */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleAreaPolygons(); }}
+              className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                showAreaPolygons
+                  ? 'bg-[#E63946] text-white border-[#E63946]'
+                  : 'border-gray-300 text-gray-600'
+              }`}
+            >
+              エリア
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleLabels(); }}
+              className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                showLabels
+                  ? 'bg-[#E63946] text-white border-[#E63946]'
+                  : 'border-gray-300 text-gray-600'
+              }`}
+            >
+              名称
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+              disabled={isLoading}
+              className="text-[11px] px-2 py-1 rounded border border-gray-300 text-gray-600 disabled:opacity-50 transition-colors flex items-center justify-center"
+            >
+              {isLoading ? (
+                <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              ) : '↻'}
+            </button>
+          </div>
         </div>
       </div>
 

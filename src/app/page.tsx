@@ -114,7 +114,15 @@ export default function Home() {
           />
         </div>
       </div>
-      <MobileDrawer {...sidebarProps} />
+      <MobileDrawer
+        {...sidebarProps}
+        showLabels={showLabels}
+        onToggleLabels={() => setShowLabels((v) => !v)}
+        showAreaPolygons={showAreaPolygons}
+        onToggleAreaPolygons={() => setShowAreaPolygons((v) => !v)}
+        onRefresh={handleRefresh}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
