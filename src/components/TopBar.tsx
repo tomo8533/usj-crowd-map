@@ -4,9 +4,17 @@ interface Props {
   fetchedAt: string | null;
   isLoading: boolean;
   onRefresh: () => void;
+  showLabels: boolean;
+  onToggleLabels: () => void;
 }
 
-export default function TopBar({ fetchedAt, isLoading, onRefresh }: Props) {
+export default function TopBar({
+  fetchedAt,
+  isLoading,
+  onRefresh,
+  showLabels,
+  onToggleLabels,
+}: Props) {
   const formattedTime = fetchedAt
     ? new Date(fetchedAt).toLocaleTimeString('ja-JP', {
         hour: '2-digit',
@@ -15,7 +23,7 @@ export default function TopBar({ fetchedAt, isLoading, onRefresh }: Props) {
     : null;
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4 flex-shrink-0 shadow-sm z-50">
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0 shadow-sm z-50">
       {/* ロゴ */}
       <div className="flex items-center gap-2">
         <span className="text-[#E63946] text-xl font-black tracking-tight">USJ</span>
@@ -30,6 +38,22 @@ export default function TopBar({ fetchedAt, isLoading, onRefresh }: Props) {
           最終更新: {formattedTime}
         </span>
       )}
+
+      {/* 名称表示トグル */}
+      <button
+        onClick={onToggleLabels}
+        title={showLabels ? '名称を非表示' : '名称を表示'}
+        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border transition-colors ${
+          showLabels
+            ? 'bg-gray-800 text-white border-gray-800'
+            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+        </svg>
+        名称 {showLabels ? 'ON' : 'OFF'}
+      </button>
 
       {/* 更新ボタン */}
       <button

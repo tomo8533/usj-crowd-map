@@ -38,7 +38,6 @@ function createBubbleIcon(ride: RideWithLocation): L.DivIcon {
   });
 }
 
-// MapContainer の子として useMap() でフォーカス制御
 function FlyToController({
   focusedRideId,
   rides,
@@ -60,9 +59,15 @@ interface Props {
   focusedRideId: number | null;
   activeAreas: string[];
   offset: SimOffset;
+  showLabels: boolean;
 }
 
-export default function MapComponent({ rides, focusedRideId, activeAreas }: Props) {
+export default function MapComponent({
+  rides,
+  focusedRideId,
+  activeAreas,
+  showLabels,
+}: Props) {
   const filteredRides =
     activeAreas.length === 0
       ? rides
@@ -85,15 +90,32 @@ export default function MapComponent({ rides, focusedRideId, activeAreas }: Prop
           position={[ride.lat, ride.lng]}
           icon={createBubbleIcon(ride)}
         >
-          <Tooltip direction="top" offset={[0, -8]}>
-            <div style={{ fontSize: 12, lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 700 }}>{ride.ride_name}</div>
-              <div>{ride.is_open ? `待ち時間: ${ride.wait_time}分` : '休止中'}</div>
-              {ride.land_name && (
-                <div style={{ color: '#6b7280' }}>{ride.land_name}</div>
-              )}
-            </div>
-          </Tooltip>
+          {showLabels ? (
+            // 名称表示 ON: 常時表示のラベル + ホバーで詳細
+            <>
+              <Tooltip
+                permanent
+                direction="bottom"
+                offset={[0, 4]}
+                className="ride-name-label"
+              >
+                <span style={{ fontSize: 10, whiteSpace: 'nowrap', color: '#374151' }}>
+                  {ride.ride_name}
+                </span>
+              </Tooltip>
+            </>
+          ) : (
+            // 名称表示 OFF: ホバーで詳細
+            <Tooltip direction="top" offset={[0, -8]}>
+              <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 700 }}>{ride.ride_name}</div>
+                <div>{ride.is_open ? `待ち時間: ${ride.wait_time}分` : '休止中'}</div>
+                {ride.land_name && (
+                  <div style={{ color: '#6b7280' }}>{ride.land_name}</div>
+                )}
+              </div>
+            </Tooltip>
+          )}
         </Marker>
       ))}
     </MapContainer>

@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 export const revalidate = 0;
 
 export async function GET() {
-  // 最新の fetched_at を取得
   const { data: latestRow, error: e1 } = await supabase
     .from('wait_times')
     .select('fetched_at')
@@ -16,40 +15,40 @@ export async function GET() {
     return NextResponse.json({ error: 'No data available' }, { status: 404 });
   }
 
-  // その fetched_at の全レコードを取得
-  const { data: waitData, error: e2 } = await supabase
-    .from('wait_times')
-    .select('ride_id, ride_name, land_name, wait_time, is_open, last_updated')
-    .eq('fetched_at', latestRow.fetched_at);
+  const [{ data: waitData, error: e2 }, { data: locations, error: e3 }] =
+    await Promise.all([
+      supabase
+        .from('wait_times')
+        .select('ride_id, ride_name, wait_time, is_open, last_updated')
+        .eq('fetched_at', latestRow.fetched_at),
+      // land_name は ride_locations の値を正とする（API の生データは表記ゆれあり）
+      supabase
+        .from('ride_locations')
+        .select('ride_id, lat, lng, land_name'),
+    ]);
 
-  if (e2) {
-    return NextResponse.json({ error: e2.message }, { status: 500 });
-  }
-
-  // 座標マスタ取得
-  const { data: locations, error: e3 } = await supabase
-    .from('ride_locations')
-    .select('ride_id, lat, lng');
-
-  if (e3) {
-    return NextResponse.json({ error: e3.message }, { status: 500 });
-  }
+  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+  if (e3) return NextResponse.json({ error: e3.message }, { status: 500 });
 
   const locationMap = new Map(
-    (locations ?? []).map((l) => [l.ride_id, { lat: l.lat, lng: l.lng }])
+    (locations ?? []).map((l) => [
+      l.ride_id,
+      { lat: l.lat, lng: l.lng, land_name: l.land_name as string | null },
+    ])
   );
 
-  // wait_times と ride_locations をコード側で結合
   const rides = (waitData ?? [])
     .map((w) => {
       const loc = locationMap.get(w.ride_id);
       if (!loc) return null;
-      return { ...w, lat: loc.lat, lng: loc.lng };
+      return {
+        ...w,
+        land_name: loc.land_name, // ride_locations の統一済み land_name を使う
+        lat: loc.lat,
+        lng: loc.lng,
+      };
     })
     .filter(Boolean);
 
-  return NextResponse.json({
-    fetched_at: latestRow.fetched_at,
-    rides,
-  });
+  return NextResponse.json({ fetched_at: latestRow.fetched_at, rides });
 }

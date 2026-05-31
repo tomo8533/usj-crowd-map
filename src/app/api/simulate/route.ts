@@ -3,14 +3,24 @@ import { supabase } from '@/lib/supabase';
 
 export const revalidate = 0;
 
-// UTC → JST の曜日・分を返す
 function getJSTDowAndMinutes(date: Date): { dow: number; minutes: number } {
   const jstMs = date.getTime() + 9 * 60 * 60 * 1000;
   const jst = new Date(jstMs);
   return {
-    dow: jst.getUTCDay(),                                          // 0=日曜
+    dow: jst.getUTCDay(),
     minutes: jst.getUTCHours() * 60 + jst.getUTCMinutes(),
   };
+}
+
+// 過去データが不足している初期期間向けの時間帯ヒューリスティック
+// USJ の典型的な混雑カーブ（13時ピーク）をモデル化した倍率を返す
+function timeOfDayMultiplier(currentMinutes: number, offsetMin: number): number {
+  const peakMinutes = 13 * 60; // 13:00 JST がピーク
+  const currentBusy = 1 - Math.abs(currentMinutes - peakMinutes) / (8 * 60);
+  const targetMinutes = currentMinutes + offsetMin;
+  const targetBusy = 1 - Math.abs(targetMinutes - peakMinutes) / (8 * 60);
+  // 比率を 0.5〜1.5 にクランプして極端な値を防ぐ
+  return Math.max(0.5, Math.min(1.5, targetBusy / Math.max(currentBusy, 0.1)));
 }
 
 interface HistRow { ride_id: number; avg_wait: number }
@@ -28,11 +38,9 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const targetTime = new Date(now.getTime() + offsetMin * 60 * 1000);
-
   const { dow: currentDow, minutes: currentMinutes } = getJSTDowAndMinutes(now);
   const { dow: targetDow, minutes: targetMinutes } = getJSTDowAndMinutes(targetTime);
 
-  // 最新 fetched_at を取得
   const { data: latestRow } = await supabase
     .from('wait_times')
     .select('fetched_at')
@@ -44,34 +52,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'データがありません' }, { status: 404 });
   }
 
-  // 並列クエリ
   const [
     { data: waitData },
     { data: locations },
     { data: currentHist },
     { data: targetHist },
   ] = await Promise.all([
-    // 現在の待ち時間
     supabase
       .from('wait_times')
-      .select('ride_id, ride_name, land_name, wait_time, is_open, last_updated')
+      .select('ride_id, ride_name, wait_time, is_open, last_updated')
       .eq('fetched_at', latestRow.fetched_at),
-    // 座標マスタ
-    supabase.from('ride_locations').select('ride_id, lat, lng'),
-    // 現在時刻の過去平均（スケール係数の分母）
-    supabase.rpc('get_historical_avg', {
-      p_dow: currentDow,
-      p_minutes: currentMinutes,
-    }),
-    // 目標時刻の過去平均（スケール係数の分子に掛ける）
-    supabase.rpc('get_historical_avg', {
-      p_dow: targetDow,
-      p_minutes: targetMinutes,
-    }),
+    // land_name は ride_locations の統一値を使う（Bug 1 対応と同様）
+    supabase.from('ride_locations').select('ride_id, lat, lng, land_name'),
+    supabase.rpc('get_historical_avg', { p_dow: currentDow, p_minutes: currentMinutes }),
+    supabase.rpc('get_historical_avg', { p_dow: targetDow, p_minutes: targetMinutes }),
   ]);
 
   const locationMap = new Map(
-    (locations ?? []).map((l) => [l.ride_id, { lat: l.lat, lng: l.lng }])
+    (locations ?? []).map((l) => [
+      l.ride_id,
+      { lat: l.lat, lng: l.lng, land_name: l.land_name as string | null },
+    ])
   );
   const currentHistMap = new Map<number, number>(
     ((currentHist as HistRow[]) ?? []).map((r) => [r.ride_id, r.avg_wait])
@@ -80,8 +81,9 @@ export async function GET(req: NextRequest) {
     ((targetHist as HistRow[]) ?? []).map((r) => [r.ride_id, r.avg_wait])
   );
 
-  // 過去データが揃っているか（データ蓄積が少ない初期は false）
   const hasEnoughData = currentHistMap.size >= 3 && targetHistMap.size >= 3;
+  // 初期期間用の時間帯倍率（hasEnoughData = false のときのみ使用）
+  const heuristicMultiplier = timeOfDayMultiplier(currentMinutes, offsetMin);
 
   const rides = (waitData ?? [])
     .map((w) => {
@@ -90,21 +92,25 @@ export async function GET(req: NextRequest) {
 
       let estimatedWait = w.wait_time;
 
-      if (hasEnoughData && w.is_open) {
-        const currentAvg = currentHistMap.get(w.ride_id);
-        const targetAvg = targetHistMap.get(w.ride_id);
-
-        if (targetAvg !== undefined) {
-          const scale =
-            currentAvg && currentAvg > 0 ? w.wait_time / currentAvg : 1;
-          estimatedWait = Math.round(targetAvg * scale);
-          // クリッピング: 0以下 → 5分、150分超 → 150分
-          estimatedWait = Math.max(5, Math.min(150, estimatedWait));
+      if (w.is_open) {
+        if (hasEnoughData) {
+          // 過去統計スケール法
+          const currentAvg = currentHistMap.get(w.ride_id);
+          const targetAvg = targetHistMap.get(w.ride_id);
+          if (targetAvg !== undefined) {
+            const scale = currentAvg && currentAvg > 0 ? w.wait_time / currentAvg : 1;
+            estimatedWait = Math.round(targetAvg * scale);
+          }
+        } else {
+          // データ不足時: 時間帯ヒューリスティックで概算値を返す
+          estimatedWait = Math.round(w.wait_time * heuristicMultiplier);
         }
+        estimatedWait = Math.max(5, Math.min(150, estimatedWait));
       }
 
       return {
         ...w,
+        land_name: loc.land_name,
         wait_time: estimatedWait,
         lat: loc.lat,
         lng: loc.lng,

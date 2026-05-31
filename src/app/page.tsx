@@ -13,28 +13,29 @@ export default function Home() {
   const [selectedOffset, setSelectedOffset] = useState<SimOffset>(0);
   const [activeAreas, setActiveAreas] = useState<string[]>([]);
   const [focusedRideId, setFocusedRideId] = useState<number | null>(null);
+  const [showLabels, setShowLabels] = useState(false);
 
-  // 最新待ち時間（5分ポーリング）
   const { data: latestData, isLoading, mutate } = useSWR<WaitTimesApiResponse>(
     '/api/waits/latest',
     fetcher,
     { refreshInterval: 5 * 60 * 1000, revalidateOnFocus: false }
   );
 
-  // シミュレーション（offset > 0 のときのみ）
   const { data: simData } = useSWR<SimulateApiResponse>(
     selectedOffset > 0 ? `/api/simulate?offset_min=${selectedOffset}` : null,
-    fetcher
+    fetcher,
+    { revalidateOnFocus: false }
   );
 
-  // サマリー
   const { data: summaryData } = useSWR<SummaryApiResponse>(
     '/api/waits/summary',
     fetcher,
     { refreshInterval: 5 * 60 * 1000, revalidateOnFocus: false }
   );
 
-  const displayData = selectedOffset > 0 && simData ? simData : latestData;
+  // シミュレーションデータが有効なレスポンス（rides を持つ）なら優先使用
+  const hasValidSimData = selectedOffset > 0 && Array.isArray(simData?.rides);
+  const displayData = hasValidSimData ? simData : latestData;
   const rides = displayData?.rides ?? [];
 
   const handleAreaToggle = useCallback((match: string | null) => {
@@ -53,6 +54,8 @@ export default function Home() {
         fetchedAt={displayData?.fetched_at ?? null}
         isLoading={isLoading}
         onRefresh={() => mutate()}
+        showLabels={showLabels}
+        onToggleLabels={() => setShowLabels((v) => !v)}
       />
       <div className="flex flex-1 min-h-0">
         <Sidebar
@@ -72,6 +75,7 @@ export default function Home() {
             focusedRideId={focusedRideId}
             activeAreas={activeAreas}
             offset={selectedOffset}
+            showLabels={showLabels}
           />
         </div>
       </div>
